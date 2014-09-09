@@ -1,0 +1,279 @@
+<!-- main template used: https://gist.github.com/espinielli/6243203 -->
+<!DOCTYPE html>
+<meta charset="utf-8">
+<link href='http://fonts.googleapis.com/css?family=Oswald' rel='stylesheet' type='text/css'>
+<style>
+
+body {
+  background: #fcfcfa;
+  font-family: 'Oswald', sans-serif;
+}
+ 
+svg {
+  font: 14px sans-serif;
+}
+ 
+.caption {
+  font-weight: bold;
+}
+ 
+.key path {
+  display: none;
+}
+ 
+.key line {
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+ 
+.stroke {
+  fill: none;
+  stroke: #000;
+  stroke-width: 3px;
+}
+ 
+.fill {
+  fill: #fff;
+}
+ 
+.graticule {
+  fill: none;
+  stroke: #ddd;
+  stroke-width: .5px;
+  stroke-opacity: .5;
+}
+ 
+.countries{
+  fill: #ddd;
+}
+ 
+.boundary {
+  fill: none;
+  stroke: #ccc;
+  stroke-width: .5px;
+}
+.label {
+  fill: #777;
+}
+ 
+.month.label {
+  font: 500 120px "Helvetica Neue";
+  fill: #ddd;
+}
+ 
+.month.label.active {
+  fill: #aaa;
+}
+ 
+.overlay {
+  fill: none;
+  pointer-events: all;
+  cursor: ew-resize;
+}
+ 
+aside {
+  font-size: small;
+  right: 0;
+  position: absolute;
+  width: 180px;
+}
+ 
+</style>
+<body>
+<script src="http://d3js.org/queue.v1.min.js"></script>
+<script src="http://d3js.org/d3.v3.min.js"></script>
+<script src="http://d3js.org/topojson.v1.min.js"></script>
+<script src="http://d3js.org/d3.geo.projection.v0.min.js"></script>
+ 
+<h2>DoxIQ usage</h2>
+<div id="map"></div>
+<script>
+var width = 1050,
+    height = 800;
+ 
+var color = d3.scale.threshold()
+    .domain([1, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
+    .range(['#e5f5f3', '#ccece7', '#99d9cf', '#7fd0c3', '#32b49f', '#00a287', '#009179','#00816c', '#00715e', '#006151', '#004036', '#003028','#00201b']);
+ 
+// A position encoding for the key only.
+var x = d3.scale.linear()
+    .domain([0, 100])
+    .range([0, 100]);
+ 
+var xAxis = d3.svg.axis()
+    .scale(x)
+    .orient("bottom")
+    .tickSize(13)
+    .tickValues(['1', '50', '100', '200','300', '400', '500', '600', '700', '800', '900', "1000+"]);
+ 
+// Various accessors that specify the four dimensions of data to visualize.
+function key(d) { return d.id; }
+ 
+var usageByCountryCode = d3.map();
+var minMonth = 04;
+var maxMonth = 08;
+ 
+var projection = d3.geo.kavrayskiy7()
+    .scale(150)
+    .translate([width / 2 - 40, height / 2 + 30])
+    .rotate([-10,0])
+    .precision(.1);
+ 
+var path = d3.geo.path()
+    .projection(projection);
+ 
+var graticule = d3.geo.graticule();
+ 
+var svg = d3.select("#map").append("svg")
+    .attr("width", width)
+    .attr("height", height);
+ 
+// Add the month label; the value is set on transition.
+var label = svg.append("text")
+    .attr("class", "month label")
+    .attr("text-anchor", "end")
+    .attr("y", 180)
+    .attr("x", width / 2 + 94)
+    .text("April");
+ 
+// ******** the scale
+var g = svg.append("g")
+    .attr("class", "key")
+    .attr("transform", "translate(15,50)");
+ 
+g.selectAll("rect")
+    .data(color.range().map(function(d, i) {
+      return {
+        x0: i ? x(color.domain()[i - 1]) : x.range()[0],
+        x1: i < color.domain().length ? x(color.domain()[i]) : x.range()[1],
+        z: d
+      };
+    }))
+  .enter().append("rect")
+    .attr("height", 12)
+    .attr("x", function(d) { return d.x0; })
+    .attr("width", function(d) { return (d.x1 - d.x0); })
+    .style("fill", function(d) { return d.z; });
+ 
+g.call(xAxis).append("text")
+    .attr("class", "caption")
+    .attr("y", -6)
+    .text("DoxIQ users");
+ 
+var noD = g.append("rect")
+  .attr("height", 12)
+  .attr("x", 0)
+  .attr("y", 40)
+  .attr("width", 15)
+  .style("stroke", "black")
+  .style("fill", "white");
+ 
+g.append("text")
+  .attr("class", "caption")
+  // .attr("text-anchor", "end")
+  .attr("x", 20)
+  .attr("y", 50)
+  .text("no data");
+// ************
+ 
+svg.append("defs").append("path")
+    .datum({type: "Sphere"})
+    .attr("id", "sphere")
+    .attr("d", path);
+ 
+svg.append("use")
+    .attr("class", "stroke")
+    .attr("xlink:href", "#sphere");
+ 
+svg.append("use")
+    .attr("class", "fill")
+    .attr("xlink:href", "#sphere");
+ 
+svg.append("path")
+    .datum(graticule)
+    .attr("class", "graticule")
+    .attr("d", path);
+ 
+ 
+queue()
+  .defer(d3.json, "world-50m.json")
+  .defer(d3.csv, "countryChange.csv", function(d) { usageByCountryCode.set(d["Country Code"], d); })
+  .await(ready);
+ 
+function ready(error, world) {
+  var countries = topojson.feature(world, world.objects.countries).features,
+      neighbors = topojson.neighbors(world.objects.countries.geometries);
+ 
+ 
+  var state = svg.insert("g", ".graticule")
+      .attr("class", "countries");
+
+  state.selectAll(".country")
+      .data(countries)
+    .enter()
+      .append("path")
+        .attr("class", "country")
+        .attr("d", path)
+      .attr("fill", function(d) {
+        var code = usageByCountryCode.get(d.id);
+        if (typeof code == "undefined") console.log("name=" + d.properties.name + ", code=" + d.id);
+        return (typeof code != "undefined") ? color(code[minMonth]) : "#ddd";
+      })
+      .append("title")
+        .text(function(d) {
+          var code = usageByCountryCode.get(d.id);
+          return d.properties.name + ": " + ((typeof code != "undefined") ? code[maxMonth] : "???") + " current users"; })
+      ;
+       // call(usage);
+ 
+  svg.insert("path", ".graticule")
+      .datum(topojson.mesh(world, world.objects.countries, function(a, b) { return a !== b; }))
+      .attr("class", "boundary")
+      .attr("d", path);
+ 
+ 
+  // Start a transition that interpolates the data based on month.
+  svg.transition()
+      .duration(5000)
+      .ease("linear")
+      .tween("month", tweenmonth);
+ 
+ 
+  // Tweens the entire chart by first tweening the month, and then the data.
+  // For the interpolated data, the dots and label are redrawn.
+  function tweenmonth() {
+    var month = d3.interpolateNumber(minMonth, maxMonth);
+    return function(t) { displaymonth(month(t)); };
+  }
+ 
+  // Updates the display to show the specified month.
+  function displaymonth(month) {
+    var yr = Math.round(month);
+
+    svg.selectAll(".country")
+      .style("fill", function(d) {
+        var code = usageByCountryCode.get(d.id);
+        return (typeof code != "undefined") ? color(code[yr]) : "white";
+      })
+      .style("stroke", "#A8A8A8"); 
+      
+
+    if (yr == 04) {
+      label.text('April')
+    } else if (yr == 05) {
+      label.text('May')
+    } else if (yr == 06) {
+      label.text('June') 
+    } else if (yr == 07) {
+      label.text('July')
+    } else {
+      label.text('Aug')
+    }
+
+  }
+ 
+ 
+};
+d3.select(self.frameElement).style("height", height + "px");
+ 
+</script>

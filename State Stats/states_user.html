@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+ <meta charset="utf-8">
+ <title>DoxIQ- US consumption</title>
+ <script type="text/javascript" src="http://d3js.org/d3.v3.min.js"></script>
+ <script type="text/javascript" src="http://d3js.org/queue.v1.min.js"></script>
+ <script type="text/javascript" src="http://d3js.org/topojson.v1.min.js"></script>
+ 
+</head>
+<style>
+ 
+path {
+ stroke:white;
+ stroke-width: 1px;
+}
+ 
+body {
+ font-family: Arial, sans-serif;
+}
+ 
+.city {
+ font: 10px sans-serif;
+ font-weight: bold;
+}
+ 
+.legend {
+ font-size: 12px;
+}
+
+.button {
+  display: inline-block;
+  background-color: black;
+  color: white;
+  cursor: pointer;
+  padding: 5px 10px;
+  margin-right: 10px;
+  }
+ 
+div.tooltip {
+ position: absolute;
+ text-align: center;
+ width: 150px;
+ height: 25px;
+ padding: 2px;
+ font-size: 10px;
+ background: #FFFFE0;
+ border: 1px;
+ border-radius: 8px;
+ pointer-events: none;
+
+}
+</style>
+<body>
+  <div class="button-group"></div>
+<h1 id='header'>DoxIQ - User Base</h1>
+ <script type="text/javascript">
+ var width = 960,
+ height = 500;
+
+ var color_domain = [0, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
+ var ext_color_domain = [0, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
+ var legend_labels = ["< 50", "50+", "100+", "200+", "300+", "400+", "500+", "600+", "700+", "800+", "900+", "1000+"]
+ var color = d3.scale.threshold()
+ .domain(color_domain)
+ .range(['#e5f5f3', '#ccece7', '#99d9cf', '#7fd0c3', '#32b49f', '#00a287', '#009179','#00816c', '#00715e', '#006151', '#004036', '#003028','#00201b']);
+ 
+var div = d3.select("body").append("div")
+ .attr("class", "tooltip")
+ .style("opacity", 0);
+ 
+var svg = d3.select("body").append("svg")
+ .attr("width", width)
+ .attr("height", height)
+ .style("margin", "10px auto");
+ var path = d3.geo.path()
+ 
+queue()
+ .defer(d3.json, "states.json")
+ .defer(d3.csv, "us_change.csv")
+ .await(ready);
+ 
+function ready(error, states, data) {
+ var pairRateWithId = {};
+ var pairNameWithId = {};
+
+//edge case
+  pairRateWithId["Puerto Rico"] = [0, 0, 0, 0, 0]
+
+  data.forEach(function(d) {
+   pairRateWithId[d.State] = [d.apr, d.may, d.jun, d.jul, d.aug];
+   pairNameWithId[d.State] = d.State;
+   });
+
+  
+  svg.append("g").attr("class","mapGroup");
+
+  var dataTitles = ['April', 'May', 'June', 'July', 'August']
+
+  var states = svg.select(".mapGroup").selectAll(".stateLine").data(states.features);
+
+  dataTitles.forEach(function(d,i){
+                    var button = d3.select(".button-group").append("div")
+                    .attr("class","button").text(d)
+                    .on("click",function(){
+                        displayData(d);
+                    });
+                })
+
+  function displayData(month) {
+
+    var header = document.getElementById("header");
+    
+    if (month == "April") {
+      mon = 0
+      header.innerHTML = "DoxIQ - User Base April";
+    } else if (month == "May") {
+      mon = 1; 
+      header.innerHTML = "DoxIQ - User Base May";
+    } else if (month == "June") {
+      mon = 2;
+      header.innerHTML = "DoxIQ - User Base June";
+    } else if (month == "July") {
+      mon = 3;
+      header.innerHTML = "DoxIQ - User Base July";
+    } else {
+       mon = 4
+      header.innerHTML = "DoxIQ - User Base August";
+    }
+
+    states.enter().append("path").attr("class","stateLine")
+      .attr("d", d3.geo.path())
+      .style ( "fill" , function (d) {
+     return color(pairRateWithId[d.properties.NAME][mon]);
+     })
+
+     .style("opacity", 0.8)
+     .on("mouseover", function(d) {
+       d3.select(this).transition().duration(300).style("opacity", 1);
+       div.transition().duration(300)
+       .style("opacity", 1)
+       div.text(pairNameWithId[d.properties.NAME] + " : " + pairRateWithId[d.properties.NAME][mon])
+       .style("left", (d3.event.pageX) + "px")
+       .style("top", (d3.event.pageY -30) + "px");
+     })
+     .on("mouseout", function() {
+       d3.select(this)
+       .transition().duration(300)
+       .style("opacity", 0.8);
+       div.transition().duration(300)
+       .style("opacity", 0);
+     })
+   
+   };
+ } 
+ 
+var legend = svg.selectAll("g.legend")
+ .data(ext_color_domain)
+ .enter().append("g")
+ .attr("class", "legend");
+ 
+var ls_w = 20, ls_h = 20;
+ 
+legend.append("rect")
+ .attr("x", 20)
+ .attr("y", function(d, i){ return height - (i*ls_h) - 2*ls_h;})
+ .attr("width", ls_w)
+ .attr("height", ls_h)
+ .style("fill", function(d, i) { return color(d); })
+ .style("opacity", 0.8);
+ 
+legend.append("text")
+ .attr("x", 50)
+ .attr("y", function(d, i){ return height - (i*ls_h) - ls_h - 4;})
+ .text(function(d, i){ return legend_labels[i]; });
+ 
+</script>
+</body>
+<!-- template from :http://suffenus.wordpress.com/2014/01/07/making-interactive-maps-with-d3-for-total-beginners -->
