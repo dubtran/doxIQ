@@ -56,12 +56,12 @@ svg {
   fill: #777;
 }
  
-.year.label {
+.month.label {
   font: 500 120px "Helvetica Neue";
   fill: #ddd;
 }
  
-.year.label.active {
+.month.label.active {
   fill: #aaa;
 }
  
@@ -128,9 +128,9 @@ var svg = d3.select("#map").append("svg")
     .attr("width", width)
     .attr("height", height);
  
-// Add the year label; the value is set on transition.
+// Add the month label; the value is set on transition.
 var label = svg.append("text")
-    .attr("class", "year label")
+    .attr("class", "month label")
     .attr("text-anchor", "end")
     .attr("y", 180)
     .attr("x", width / 2 + 94)
@@ -204,17 +204,6 @@ function ready(error, world) {
   var countries = topojson.feature(world, world.objects.countries).features,
       neighbors = topojson.neighbors(world.objects.countries.geometries);
  
-  // *********** Add an overlay for the year label.
-  var box = label.node().getBBox();
- 
-  var overlay = svg.append("rect")
-        .attr("class", "overlay")
-        .attr("x", box.x)
-        .attr("y", box.y)
-        .attr("width", box.width)
-        .attr("height", box.height)
-        .on("mouseover", enableInteraction);
-  // **************************
  
   var state = svg.insert("g", ".graticule")
       .attr("class", "countries");
@@ -243,53 +232,52 @@ function ready(error, world) {
       .attr("d", path);
  
  
-  // Start a transition that interpolates the data based on year.
+  // Start a transition that interpolates the data based on month.
   svg.transition()
-      .duration(30000)
+      .duration(5000)
       .ease("linear")
-      .tween("year", tweenYear)
-      .each("end", enableInteraction);
+      .tween("month", tweenmonth);
  
  
-  // After the transition finishes, you can mouseover to change the year.
-  function enableInteraction() {
-    var yearScale = d3.scale.linear()
-        .domain([minMonth, maxMonth])
-        .range([box.x + 10, box.x + box.width - 10])
-        .clamp(true);
+  // After the transition finishes, you can mouseover to change the month.
+  // function enableInteraction() {
+  //   var monthScale = d3.scale.linear()
+  //       .domain([minMonth, maxMonth])
+  //       .range([box.x + 10, box.x + box.width - 10])
+  //       .clamp(true);
  
-    // Cancel the current transition, if any.
-    svg.transition().duration(0);
+  //   // Cancel the current transition, if any.
+  //   svg.transition().duration(0);
  
-    overlay
-        .on("mouseover", mouseover)
-        .on("mouseout", mouseout)
-        .on("mousemove", mousemove)
-        .on("touchmove", mousemove);
+  //   overlay
+  //       .on("mouseover", mouseover)
+  //       .on("mouseout", mouseout)
+  //       .on("mousemove", mousemove)
+  //       .on("touchmove", mousemove);
  
-    function mouseover() {
-      label.classed("active", true);
-    }
+  //   function mouseover() {
+  //     label.classed("active", true);
+  //   }
  
-    function mouseout() {
-      label.classed("active", false);
-    }
+  //   function mouseout() {
+  //     label.classed("active", false);
+  //   }
  
-    function mousemove() {
-      displayYear(yearScale.invert(d3.mouse(this)[0]));
-    }
-  }
+  //   function mousemove() {
+  //     displaymonth(monthScale.invert(d3.mouse(this)[0]));
+  //   }
+  // }
  
-  // Tweens the entire chart by first tweening the year, and then the data.
+  // Tweens the entire chart by first tweening the month, and then the data.
   // For the interpolated data, the dots and label are redrawn.
-  function tweenYear() {
-    var year = d3.interpolateNumber(minMonth, maxMonth);
-    return function(t) { displayYear(year(t)); };
+  function tweenmonth() {
+    var month = d3.interpolateNumber(minMonth, maxMonth);
+    return function(t) { displaymonth(month(t)); };
   }
  
-  // Updates the display to show the specified year.
-  function displayYear(year) {
-    var yr = Math.round(year);
+  // Updates the display to show the specified month.
+  function displaymonth(month) {
+    var yr = Math.round(month);
 
     svg.selectAll(".country")
       .style("fill", function(d) {
